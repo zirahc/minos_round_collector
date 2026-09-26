@@ -6,7 +6,7 @@ Pass a count to read only that many rows from the top of the file:
     python collect_round.py 3
 
 The six reveal files are downloaded into downloads/<round_id>/ and uploaded
-to the Hugging Face dataset for that round's chromosome. Fill HF_REPOS and
+to the Hugging Face model repo for that round's chromosome. Fill HF_REPOS and
 set HF_TOKEN before running. Each collected round is then upserted into the
 Supabase public.rounds table. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
 Collected objects are also printed and written to rounds.jsonl.
@@ -31,7 +31,7 @@ DOWNLOADS = Path(__file__).with_name("downloads")
 ENV_PATH = Path(__file__).with_name(".env")
 # Scoring for this round was not finished, so it is never collected.
 SKIP_ROUNDS = {"2026-09-25T23:53:00+00:00"}
-# One Hugging Face dataset repo per chromosome. Fill these with your repo ids,
+# One Hugging Face model repo per chromosome. Fill these with your repo ids,
 # for example "your-name/minos-chr20".
 HF_REPOS = {
     "chr14": "eliteminer/minos_ch14",
@@ -178,25 +178,26 @@ def download_round_files(collected: dict) -> Path:
 
 
 def upload_round_folder(collected: dict, folder: Path) -> str:
-    """Upload downloads/<round_id>/ into the chromosome's Hugging Face dataset."""
+    """Upload downloads/<round_id>/ into the chromosome's Hugging Face model repo."""
     chrom = chromosome(collected.get("region"))
-    repo_id = HF_REPOS.get(chrom, "")
+    repo_id = HF_REPOS.get(chrom, "").strip()
     if not repo_id:
         raise ValueError(f"no Hugging Face repo configured for {chrom}")
     token = os.environ.get("HF_TOKEN")
     if not token:
-        raise ValueError("set HF_TOKEN to a Hugging Face token that can write the dataset")
+        raise ValueError("set HF_TOKEN to a Hugging Face token that can write the model repo")
 
     remote_folder = folder.name
+    api = HfApi(token=token)
+    api.create_repo(repo_id=repo_id, repo_type="model", exist_ok=True)
     print(f"  upload {remote_folder} -> {repo_id}", file=sys.stderr, flush=True)
-    HfApi().upload_folder(
+    api.upload_folder(
         folder_path=str(folder),
         path_in_repo=remote_folder,
         repo_id=repo_id,
-        repo_type="dataset",
-        token=token,
+        repo_type="model",
     )
-    return f"https://huggingface.co/datasets/{repo_id}/tree/main/{remote_folder}"
+    return f"https://huggingface.co/{repo_id}/tree/main/{remote_folder}"
 
 
 def round_row(collected: dict) -> dict:
@@ -280,7 +281,7 @@ def round_on_huggingface(collected: dict) -> bool:
         entries = HfApi().list_repo_tree(
             repo_id=repo_id,
             path_in_repo=folder_name(collected["round_id"]),
-            repo_type="dataset",
+            repo_type="model",
             token=os.environ.get("HF_TOKEN"),
         )
     except Exception:
