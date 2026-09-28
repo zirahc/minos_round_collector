@@ -11,6 +11,7 @@ round, verification_link, scoring_link, verification_status, scoring_status
 from __future__ import annotations
 
 import csv
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -26,7 +27,7 @@ START = datetime(2026, 9, 25, 23, 53, tzinfo=timezone.utc)
 FIRST_DAY = datetime(2026, 9, 20, tzinfo=timezone.utc)
 OUT_PATH = Path(__file__).with_name("round_links.csv")
 TIMEOUT = 30
-WORKERS = 16
+WORKERS = 4
 
 
 def round_id(moment: datetime) -> str:
@@ -42,14 +43,22 @@ def links(round_key: str) -> tuple[str, str]:
 
 def http_status(url: str) -> str:
     request = urllib.request.Request(url, method="GET", headers={"Accept": "application/json"})
-    try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-            response.read(1)
-            return str(response.status)
-    except urllib.error.HTTPError as error:
-        return str(error.code)
-    except Exception as error:
-        return f"error: {error}"
+    for attempt in range(6):
+        try:
+            with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+                response.read(1)
+                return str(response.status)
+        except urllib.error.HTTPError as error:
+            if error.code in (403, 429, 503) and attempt < 5:
+                time.sleep(2 ** attempt)
+                continue
+            return str(error.code)
+        except Exception as error:
+            if attempt < 5:
+                time.sleep(2 ** attempt)
+                continue
+            return f"error: {error}"
+    return "error: retries exhausted"
 
 
 def scoring_status(moment: datetime) -> str:
@@ -61,13 +70,20 @@ def locate(expected: datetime) -> datetime | None:
     """Return the round at `expected`, or the latest real round up to 71 minutes earlier."""
     if scoring_status(expected) == "200":
         return expected
-    candidates = [expected - timedelta(minutes=delta) for delta in range(1, 72)]
+    # The clock usually slips only a few minutes. Check those before a wide scan.
+    near = [expected - timedelta(minutes=delta) for delta in range(1, 9)]
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
-        statuses = list(pool.map(scoring_status, candidates))
-    hits = [moment for moment, status in zip(candidates, statuses) if status == "200"]
-    if not hits:
+        near_status = list(pool.map(scoring_status, near))
+    near_hits = [moment for moment, status in zip(near, near_status) if status == "200"]
+    if near_hits:
+        return max(near_hits)
+    far = [expected - timedelta(minutes=delta) for delta in range(9, 72)]
+    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
+        far_status = list(pool.map(scoring_status, far))
+    far_hits = [moment for moment, status in zip(far, far_status) if status == "200"]
+    if not far_hits:
         return None
-    return max(hits)
+    return max(far_hits)
 
 
 def row_for(moment: datetime, scoring: str | None = None) -> dict[str, str]:

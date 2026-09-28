@@ -1,9 +1,11 @@
-"""Read rounds from round_links_new.csv and collect each one.
+"""Read rounds from a links CSV and collect each one.
 
 Each row has the round id plus verification_link and scoring_link.
-Pass a count to read only that many rows from the top of the file:
+The CSV path is the first argument. Pass a count to read only that many
+rows from the top of the file:
 
-    python collect_round.py 3
+    python collect_round.py round_links_9_01_9_25.csv
+    python collect_round.py round_links_9_01_9_25.csv 3
 
 The six reveal files are downloaded into downloads/<round_id>/ and uploaded
 to the Hugging Face model repo for that round's chromosome. Fill HF_REPOS and
@@ -25,7 +27,6 @@ from pathlib import Path
 
 from huggingface_hub import HfApi
 
-LINKS_PATH = Path(__file__).with_name("round_links_new.csv")
 OUT_PATH = Path(__file__).with_name("rounds.jsonl")
 DOWNLOADS = Path(__file__).with_name("downloads")
 ENV_PATH = Path(__file__).with_name(".env")
@@ -314,11 +315,14 @@ def save_round(collected: dict) -> None:
 
 def main() -> None:
     load_env()
-    count = int(sys.argv[1]) if len(sys.argv) > 1 else None
+    if len(sys.argv) < 2:
+        raise SystemExit("usage: python collect_round.py <csv> [count]")
+    links_path = Path(sys.argv[1])
+    count = int(sys.argv[2]) if len(sys.argv) > 2 else None
     if count is not None and count < 1:
         raise SystemExit("count must be at least 1")
 
-    rows = [row for row in read_links(LINKS_PATH) if row["round"] not in SKIP_ROUNDS]
+    rows = [row for row in read_links(links_path) if row["round"] not in SKIP_ROUNDS]
     if count is not None:
         rows = rows[:count]
 
