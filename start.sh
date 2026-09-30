@@ -9,14 +9,8 @@ if [[ $# -lt 1 ]]; then
 fi
 
 if [[ ! -d .venv ]]; then
-  if command -v python >/dev/null 2>&1; then
-    python -m venv .venv
-  elif command -v python3 >/dev/null 2>&1; then
-    python3 -m venv .venv
-  else
-    echo "python is not installed" >&2
-    exit 1
-  fi
+  sudo apt install -y python3.12-venv
+  python3.12 -m venv .venv
 fi
 
 if [[ -f .venv/Scripts/activate ]]; then
