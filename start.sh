@@ -20,4 +20,5 @@ else
 fi
 
 python -m pip install -r requirements.txt
+
 python collect_round.py "$@"
