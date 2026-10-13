@@ -35,6 +35,8 @@ SKIP_ROUNDS = {"2026-09-25T23:53:00+00:00"}
 # One Hugging Face model repo per chromosome. Fill these with your repo ids,
 # for example "your-name/minos-chr20".
 HF_REPOS = {
+    "chr12": "eliteminer/minos_ch12",
+    "chr13": "eliteminer/minos_ch13",
     "chr14": "eliteminer/minos_ch14",
     "chr15": "eliteminer/minos_ch15",
     "chr16": "eliteminer/minos_ch16",
