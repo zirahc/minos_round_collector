@@ -10,8 +10,8 @@ from pathlib import Path
 import append_scored_rounds as scored
 import check_round_links as links
 
-SOURCE = Path(__file__).with_name("round_links_9_29_10_05.csv")
-OUT = Path(__file__).with_name("round_links_9_29_10_05.csv")
+SOURCE = Path(__file__).with_name("round_links_10_05_10_13.csv")
+OUT = Path(__file__).with_name("round_links_10_05_10_13.csv")
 
 
 def scoring_body_retry(url: str, attempts: int = 5) -> dict | None:
